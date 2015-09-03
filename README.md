@@ -62,8 +62,8 @@ http://<YOURSONOSBOX>:1400/customsd.htm
 
 * SID, pick anything, I took 249
 * ServiceName: Plex2Sonos
-* EndPointUrl: http://<IP OF WHERE YOU RUN THE CONSOLE APP>:8888/Plex2Sonos
-* Secure EndPointUrl: http://<IP OF WHERE YOU RUN THE CONSOLE APP>:8888/Plex2Sonos
+* EndPointUrl: http://<IP OF WHERE YOU RUN THE CONSOLE APP>:30020/Plex2Sonos
+* Secure EndPointUrl: http://<IP OF WHERE YOU RUN THE CONSOLE APP>:30020/Plex2Sonos
 * Pooling Interval: 60 Seconds
 * Container Type: Music Service
 * Auth: Anonymous (for now)
