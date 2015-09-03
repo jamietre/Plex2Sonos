@@ -14,6 +14,7 @@ namespace Plex2Sonos.Server
 {
     public class MusicProxyServer : ISonosSoap
     {
+      
         private PlexMediaServer Server
         {
             get
@@ -189,7 +190,11 @@ namespace Plex2Sonos.Server
                 artist = track.Parent.Parent.Name,
                 albumArtist = track.Parent.Parent.Name,
                 albumArtistId = track.Parent.Parent.Key,
-                albumArtURI = (!String.IsNullOrEmpty(track.Parent.ThumbLocation) ? new albumArtUrl() { Value = String.Format("http://192.168.1.227:8888/ImageService/GetImage?image={0}", track.Parent.ThumbLocation) } : null),
+                albumArtURI = (!String.IsNullOrEmpty(track.Parent.ThumbLocation) ? 
+                new albumArtUrl() {
+                    Value = String.Format("http://176.16.2.143:8888/ImageService/GetImage?image={0}", 
+                    track.Parent.ThumbLocation) 
+                } : null),
                 canPlay = true,
                 canPlaySpecified = true,
                 duration = track.Duration / 1000,
@@ -223,12 +228,28 @@ namespace Plex2Sonos.Server
 
         private AbstractMedia[] RetreiveArtists(int sectionID)
         {
-            return Server.MusicSections.Single(p => p.SectionID == sectionID).Artists.Select(p => BuildArtist(p)).ToArray();
+            return Server.MusicSections
+                .Single(p => p.SectionID == sectionID)
+                .Artists.Select(p => BuildArtist(p)).ToArray();
         }
 
         private static mediaCollection BuildArtist(Artist p)
         {
-            return new mediaCollection() { id = String.Format("Art/{0}", p.Key), country = p.Country, itemType = itemType.artist, canPlay = true, canPlaySpecified = true, canEnumerate = true, canEnumerateSpecified = true, title = p.Name, albumArtURI = (!String.IsNullOrEmpty(p.ThumbLocation) ? new albumArtUrl() { Value = String.Format("http://192.168.1.227:8888/ImageService/GetImage?image={0}", p.ThumbLocation) } : null) };
+            return new mediaCollection() { 
+                id = String.Format("Art/{0}", p.Key), 
+                country = p.Country, 
+                itemType = itemType.artist, 
+                canPlay = true, 
+                canPlaySpecified = true, 
+                canEnumerate = true, 
+                canEnumerateSpecified = true, 
+                title = p.Name, 
+                albumArtURI = (!String.IsNullOrEmpty(p.ThumbLocation) ? 
+                    new albumArtUrl() { 
+                        Value = String.Format("http://176.16.2.143:8888/ImageService/GetImage?image={0}", 
+                        p.ThumbLocation
+                        ) 
+                    } : null) };
         }
 
         private AbstractMedia[] RetrieveAlbums(string artistID)
@@ -238,7 +259,7 @@ namespace Plex2Sonos.Server
 
         private static mediaCollection BuildAlbum(Album p)
         {
-            return new mediaCollection() { id = String.Format("Alb/{0}", p.Key), itemType = itemType.album, canEnumerate = true, canEnumerateSpecified = true, canPlay = true, canPlaySpecified = true, title = p.Name, summary = p.Summary, artist = p.Parent.Name, albumArtURI = (!String.IsNullOrEmpty(p.ThumbLocation) ? new albumArtUrl() { Value = String.Format("http://192.168.1.227:8888/ImageService/GetImage?image={0}", p.ThumbLocation) } : null) };
+            return new mediaCollection() { id = String.Format("Alb/{0}", p.Key), itemType = itemType.album, canEnumerate = true, canEnumerateSpecified = true, canPlay = true, canPlaySpecified = true, title = p.Name, summary = p.Summary, artist = p.Parent.Name, albumArtURI = (!String.IsNullOrEmpty(p.ThumbLocation) ? new albumArtUrl() { Value = String.Format("http://176.16.2.143:8888/ImageService/GetImage?image={0}", p.ThumbLocation) } : null) };
         }
 
         private AbstractMedia[] RetrieveTracks(string albumID)

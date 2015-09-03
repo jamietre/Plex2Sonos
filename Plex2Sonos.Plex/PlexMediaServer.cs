@@ -23,6 +23,8 @@ namespace Plex2Sonos.Plex
 
         }
 
+        public event EventHandler<string> Progress;
+
         public static PlexMediaServer Instance()
         {
             if (instance == null)
@@ -51,9 +53,19 @@ namespace Plex2Sonos.Plex
         {
             lock (this)
             {
-                trackIndex = MusicSections.SelectMany(p => p.Artists).SelectMany(p => p.Albums).SelectMany(p => p.Tracks).Select(p => new KeyValuePair<string, Track>(p.Key, p)).ToDictionary(kv => kv.Key, kv => kv.Value);
-                albumIndex = MusicSections.SelectMany(p => p.Artists).SelectMany(p => p.Albums).Select(p => new KeyValuePair<string, Album>(p.Key, p)).ToDictionary(kv => kv.Key, kv => kv.Value);
-                artistIndex = MusicSections.SelectMany(p => p.Artists).Select(p => new KeyValuePair<string, Artist>(p.Key, p)).ToDictionary(kv => kv.Key, kv => kv.Value);
+                var artists = MusicSections.SelectMany(p => p.Artists ?? Enumerable.Empty<Artist>());
+                var albums = artists.SelectMany(p => p.Albums ?? Enumerable.Empty<Album>());
+                
+                trackIndex = albums
+                    .SelectMany(p => p.Tracks ?? Enumerable.Empty<Track>())
+                    .Select(p => new KeyValuePair<string, Track>(p.Key, p))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
+                albumIndex = albums
+                    .Select(p => new KeyValuePair<string, Album>(p.Key, p))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
+                artistIndex = artists
+                    .Select(p => new KeyValuePair<string, Artist>(p.Key, p))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value);
             }
         }
 
@@ -89,20 +101,27 @@ namespace Plex2Sonos.Plex
         }
         public async Task GetMusicSectionDetails()
         {
+            DoProgress("Getting music section details");
+
             var sections = await DiscoverMusicSections();
+
             if (MusicSections == null)
             {
+                DoProgress("No existing data; rebuilding from scratch");
                 MusicSections = sections;
-            
             }
             else
             {
                 //TODO: Delete Old Ones.. 
                 //TODO: Add New Ones..
                 //Yeah this needs to go into one linq statement, but have a three year old bothering me right now..
+
+                DoProgress("Merging music data");
+
                 foreach(var section in sections)
                 {
-                    if (MusicSections.Exists(p=>p.Key == section.Key ))
+
+                    if (MusicSections.Exists(p => p.Key == section.Key))
                     {
                         var ms = MusicSections.Single(p => p.Key == section.Key);
                         if (ms.LastUpdated < section.LastUpdated)
@@ -110,6 +129,11 @@ namespace Plex2Sonos.Plex
                             //Puke, need to just figure out what changed, not reload whole collection
                             ms.LastProcessed = null;
                         }
+                    }
+                    else
+                    {
+                        MusicSections.Add(section);
+                        section.LastProcessed = null;
                     }
                 }
             }
@@ -120,6 +144,8 @@ namespace Plex2Sonos.Plex
                 var artists = await GetMusicSectionArtists(section);
                 section.LastProcessed = DateTime.Now;
                 section.Artists = artists;
+
+                DoProgress(String.Format("Added section '{0}', {1} artists", section.Name, artists.Count));
             }
             PopulateIndicies();
         }
@@ -193,8 +219,23 @@ namespace Plex2Sonos.Plex
             return artistIndex[key];
         }
 
+        // Artist metadata
+        //[0]: "_elementType"
+        //[1]: "ratingKey"
+        //[2]: "key"
+        //[3]: "type"
+        //[4]: "title"
+        //[5]: "summary"
+        //[6]: "index"
+        //[7]: "thumb"
+        //[8]: "art"
+        //[9]: "addedAt"
+        //[10]: "updatedAt"
+        //[11]: "_children"
+
         private async Task<List<Artist>> GetMusicSectionArtists(MusicSection musicSection)
         {
+            var max = 10;
             var list = new List<Artist>();
             using (dynamic client = this.CreateDynamicClient(string.Format("library/sections/{0}/all", musicSection.SectionID)))
             {
@@ -202,8 +243,15 @@ namespace Plex2Sonos.Plex
                 var artists = result._children as IEnumerable<dynamic>;
                 foreach (dynamic artist in artists)
                 {
+                    if (max-- == 0)
+                    {
+                        break;
+                    }
+                    DoProgress(String.Format("Adding '{0}'",artist.title));
                     var a = new Artist(musicSection, artist);
                     a.Albums = await GetArtistAlbums(a);
+                    DoProgress(String.Format("...{0} albums", a.Albums.Count));
+                    
                     if (a.Albums.Count > 0)
                     {
                         list.Add(a);
@@ -229,6 +277,14 @@ namespace Plex2Sonos.Plex
         public dynamic CreateDynamicClient(string action)
         {
             return new DynamicRestClient(String.Format("http://{1}/{0}", action,PlexServerAndPort), restClientDefaults);
+        }
+
+        private void DoProgress(string message) 
+        {
+            if (Progress != null)
+            {
+                Progress(this, message);
+            }
         }
     }
 }

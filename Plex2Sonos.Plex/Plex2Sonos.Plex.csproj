@@ -67,6 +67,7 @@
   <ItemGroup>
     <Compile Include="Album.cs" />
     <Compile Include="Artist.cs" />
+    <Compile Include="JsObject.cs" />
     <Compile Include="MediaContainer.cs" />
     <Compile Include="MusicSection.cs" />
     <Compile Include="PlexHeaders.Designer.cs">

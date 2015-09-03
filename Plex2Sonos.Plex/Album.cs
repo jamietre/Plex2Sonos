@@ -7,7 +7,7 @@ namespace Plex2Sonos.Plex
     public class Album : MediaContainer
     {
         [ProtoMember(41)]
-        public int? Year { get; set; }
+        public long? Year { get; set; }
         [ProtoMember(42, AsReference = true)]
         public List<Track> Tracks { get; set; }
         public Album()
@@ -21,7 +21,7 @@ namespace Plex2Sonos.Plex
         }
         protected override void PopulateMediaContainerProperties(dynamic dynMediaContainer)
         {
-            this.Year = AttemptDynamicPropertyExtract<int?>(() => { return dynMediaContainer.year; }, () => { return null; });
+            this.Year = AttemptDynamicPropertyExtract<long?>(() => { return dynMediaContainer.year; }, () => { return null; });
         }
     }
 }

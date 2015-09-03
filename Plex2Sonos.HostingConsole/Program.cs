@@ -8,11 +8,15 @@ using System.Net;
 using System.Net.Sockets;
 using System.ServiceModel;
 using System.ServiceModel.Description;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Plex2Sonos.HostingConsole
 {
     class Program
     {
+        static ManualResetEvent resetEvent = new ManualResetEvent(false);
+
         static void Main(string[] args)
         {
             ServicePointManager.DefaultConnectionLimit = 100;
@@ -22,27 +26,40 @@ namespace Plex2Sonos.HostingConsole
                 ps.LoadMusicSectionDetails("Plex2Sonos.dat");
             }
             Console.WriteLine("Loading Plex Data");
-            ps.GetMusicSectionDetails().Wait(); //Ick
-            Console.WriteLine("Finished Loading Plex Data");
-            var p2sPort = ConfigurationManager.AppSettings["Plex2SonosPort"];
-            var localIP = GetLocalIPAddress();
 
-            var sonosSoapHost = new ServiceHost(typeof(MusicProxyServer), new Uri(String.Format("http://{0}:{1}/Plex2Sonos",localIP,p2sPort)));
-            sonosSoapHost.AddServiceEndpoint(typeof(ISonosSoap), new BasicHttpBinding(), "");
-            sonosSoapHost.Open();
+            ps.Progress += (sender, message) => {
+                Console.WriteLine(message);
+            };
+          
+            ps.GetMusicSectionDetails().ContinueWith((Task t) =>
+            {
+                ps.SaveMusicSectionDetails("Plex2Sonos.dat");
 
-            var sonosImageHost = new ServiceHost(typeof(ImageProxyServer), new Uri(String.Format("http://{0}:{1}/ImageService", localIP, p2sPort)));
-            var ep = sonosImageHost.AddServiceEndpoint(typeof(IImageService), new WebHttpBinding(WebHttpSecurityMode.None), "");
-            ep.EndpointBehaviors.Add(new WebHttpBehavior());
+                Console.WriteLine("Finished Loading Plex Data");
+                var p2sPort = ConfigurationManager.AppSettings["Plex2SonosPort"];
+                var localIP = GetLocalIPAddress();
 
-            sonosImageHost.Open();
-            Console.WriteLine("Plex2Sonos is live now at {0}", String.Format("http://{0}:{1}/Plex2Sonos", localIP, p2sPort));
-            Console.WriteLine("ImageService is live now at {0}", String.Format("http://{0}:{1}/ImageService", localIP, p2sPort));
-            Console.WriteLine("Press the \"Any Key\" To Close");
-            Console.ReadKey();
+                var sonosSoapHost = new ServiceHost(typeof(MusicProxyServer), new Uri(String.Format("http://{0}:{1}/Plex2Sonos", localIP, p2sPort)));
+                sonosSoapHost.AddServiceEndpoint(typeof(ISonosSoap), new BasicHttpBinding(), "");
+                sonosSoapHost.Open();
 
-            sonosSoapHost.Close();
-            ps.SaveMusicSectionDetails("Plex2Sonos.dat");
+                var sonosImageHost = new ServiceHost(typeof(ImageProxyServer), new Uri(String.Format("http://{0}:{1}/ImageService", localIP, p2sPort)));
+                var ep = sonosImageHost.AddServiceEndpoint(typeof(IImageService), new WebHttpBinding(WebHttpSecurityMode.None), "");
+                ep.EndpointBehaviors.Add(new WebHttpBehavior());
+
+                sonosImageHost.Open();
+                Console.WriteLine("Plex2Sonos is live now at {0}", String.Format("http://{0}:{1}/Plex2Sonos", localIP, p2sPort));
+                Console.WriteLine("ImageService is live now at {0}", String.Format("http://{0}:{1}/ImageService", localIP, p2sPort));
+                Console.WriteLine("Press the \"Any Key\" To Close");
+                Console.ReadKey();
+
+                sonosSoapHost.Close();
+
+                resetEvent.Set();
+            });
+
+            resetEvent.WaitOne();
+            
         }
 
         private static string GetLocalIPAddress()
